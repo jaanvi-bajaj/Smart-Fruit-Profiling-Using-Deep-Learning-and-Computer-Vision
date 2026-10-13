@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fruit Ripeness Detection - Smart Fruit Profiling System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Ripeness badge colors */
+    .badge-green   { background: #16a34a; color: #fff; }
+    .badge-yellow  { background: #ca8a04; color: #fff; }
+    .badge-orange  { background: #ea580c; color: #fff; }
+    .badge-red     { background: #dc2626; color: #fff; }
+    .badge-gray    { background: #6b7280; color: #fff; }
+
+    /* Confidence bar */
+    .conf-bar-fill { transition: width 0.8s ease; }
+
+    /* Spoilage warning pulse */
+    @keyframes pulse-warn {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.7; }
+    }
+    .spoilage-warning { animation: pulse-warn 2s infinite; }
+
+    /* Card hover lift */
+    .fruit-card { transition: transform 0.2s, box-shadow 0.2s; }
+    .fruit-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.12); }
+  </style>
+</head>
+<body class="bg-green-50 font-sans min-h-screen">
+
+  <!-- ── Navbar ── -->
+  <nav class="bg-green-800 text-white py-4 shadow-lg">
+    <div class="container mx-auto px-6 flex justify-between items-center">
+      <div class="text-2xl font-bold">
+        <a href="{{ url_for('home') }}" class="hover:text-green-200 transition">🍃 FruitAI</a>
+      </div>
+      <ul class="flex space-x-6 text-sm font-medium">
+        <li><a href="{{ url_for('home') }}"         class="hover:text-green-200 transition">Home</a></li>
+        <li><a href="{{ url_for('image_live1') }}"  class="hover:text-green-200 transition">Live Detection</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ── Header ── -->
+  <header class="bg-gradient-to-r from-green-700 to-emerald-600 text-white text-center py-12 shadow-md">
+    <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight px-6">
+      🍎 Fruit Ripeness Detection
+    </h1>
+    <p class="text-lg mt-3 opacity-90 px-6">
+      Upload an image to detect fruit condition, shelf life &amp; recommendations
+    </p>
+  </header>
+
+  <main class="py-12">
+    <div class="container mx-auto px-6 max-w-5xl">
+
+      <!-- ── Upload Card ── -->
+      <div class="bg-white rounded-2xl shadow-xl p-8 max-w-lg mx-auto mb-12">
+        <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Upload Fruit Image</h2>
+
+        {% if error %}
+          <div class="mb-4 p-3 bg-red-50 border border-red-300 rounded-lg text-red-600 text-sm text-center">
+            {{ error }}
+          </div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('image_upload1') }}" enctype="multipart/form-data">
+          <div class="mb-5">
+            <label for="image" class="block text-gray-700 font-semibold mb-2">Select Image</label>
+            <input
+              type="file" id="image" name="image" accept="image/*" required
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:bg-green-100 file:text-green-700 hover:file:bg-green-200"
+            />
+          </div>
+          <button
+            type="submit"
+            class="w-full bg-green-600 text-white py-3 rounded-xl font-semibold text-lg hover:bg-green-700 active:scale-95 transition duration-200 shadow-md"
+          >
+            🔍 Analyze Image
+          </button>
+        </form>
+      </div>
+
+      <!-- ── Results Section ── -->
+      {% if img_data %}
+      <div class="space-y-10">
+
+        <!-- Summary Banner -->
+        <div class="bg-green-700 text-white rounded-2xl px-6 py-4 flex items-center justify-between shadow">
+          <span class="text-lg font-semibold">Detection Complete</span>
+          <span class="bg-white text-green-700 font-bold px-4 py-1 rounded-full text-sm">
+            {{ total_count }} fruit{{ 's' if total_count != 1 else '' }} detected
+          </span>
+        </div>
+
+        <!-- Annotated Image -->
+        <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div class="bg-gray-50 px-6 py-4 border-b">
+            <h3 class="text-lg font-bold text-gray-800">📷 Annotated Result</h3>
+          </div>
+          <div class="p-6 text-center">
+            <img
+              src="data:image/png;base64,{{ img_data }}"
+              alt="Detection Result"
+              class="inline-block max-w-full rounded-xl shadow-lg border border-gray-200"
+            />
+          </div>
+        </div>
+
+        <!-- Per-Fruit Cards -->
+        {% if detected_fruits %}
+        <div>
+          <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center">📋 Detailed Analysis</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {% for item in detected_fruits %}
+            <div class="fruit-card bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+
+              <!-- Card Header -->
+              <div class="bg-gradient-to-r from-green-600 to-emerald-500 px-6 py-4 flex items-center justify-between">
+                <div>
+                  <p class="text-white text-xs uppercase tracking-widest font-semibold opacity-80">Detected Fruit</p>
+                  <h4 class="text-white text-2xl font-extrabold mt-0.5">{{ item.fruit_name }}</h4>
+                </div>
+                <!-- Ripeness Badge -->
+                <span class="badge-{{ item.ripeness_color }} px-3 py-1 rounded-full text-sm font-bold shadow">
+                  {{ item.ripeness_stage }}
+                </span>
+              </div>
+
+              <!-- Card Body -->
+              <div class="px-6 py-5 space-y-4">
+
+                <!-- Spoilage Warning (only if present) -->
+                {% if item.spoilage_warning %}
+                <div class="spoilage-warning bg-red-50 border border-red-300 rounded-xl px-4 py-3 text-red-700 font-semibold text-sm">
+                  {{ item.spoilage_warning }}
+                </div>
+                {% endif %}
+
+                <!-- Confidence Levels -->
+                <div>
+                  <p class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Detection Confidence</p>
+                  <div class="flex items-center gap-3">
+                    <div class="flex-1 bg-gray-200 rounded-full h-3">
+                      <div
+                        class="conf-bar-fill h-3 rounded-full bg-green-500"
+                        style="width: {{ item.confidence }}%"
+                      ></div>
+                    </div>
+                    <span class="text-green-700 font-bold text-sm w-12 text-right">{{ item.confidence }}%</span>
+                  </div>
+                  <p class="text-xs text-gray-400 mt-1">Model confidence for <strong>{{ item.full_label }}</strong></p>
+                </div>
+
+                <!-- Shelf Life -->
+                <div class="flex items-start gap-3 bg-blue-50 rounded-xl px-4 py-3">
+                  <span class="text-2xl">🕒</span>
+                  <div>
+                    <p class="text-xs text-blue-500 font-semibold uppercase tracking-wider">Estimated Shelf Life</p>
+                    <p class="text-blue-800 font-bold text-lg">{{ item.shelf_life }}</p>
+                    {% if item.ripeness_stage == 'Ripe' %}
+                      <p class="text-xs text-blue-500 mt-0.5">Store in a cool, dry place to extend freshness.</p>
+                    {% elif item.ripeness_stage == 'Unripe' %}
+                      <p class="text-xs text-blue-500 mt-0.5">Keep at room temperature to ripen naturally.</p>
+                    {% elif item.ripeness_stage == 'Overripe' %}
+                      <p class="text-xs text-orange-500 mt-0.5">Refrigerate to slow further deterioration.</p>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <!-- Recommendation -->
+                <div class="flex items-start gap-3 bg-yellow-50 rounded-xl px-4 py-3">
+                  <span class="text-2xl">💡</span>
+                  <div>
+                    <p class="text-xs text-yellow-600 font-semibold uppercase tracking-wider">Recommendation</p>
+                    <p class="text-gray-700 font-medium text-sm mt-0.5">{{ item.recommendation }}</p>
+                  </div>
+                </div>
+
+              </div><!-- end card body -->
+            </div><!-- end fruit-card -->
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+      </div><!-- end results -->
+      {% endif %}
+
+    </div>
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer class="mt-16 bg-green-800 text-green-200 text-center py-6 text-sm">
+    <p>🍃 Smart Fruit Profiling System &mdash; Powered by YOLO</p>
+  </footer>
+
+</body>
+</html>
